@@ -4,6 +4,8 @@ A horizontal Lovelace card for Home Assistant: clock, date, current weather and
 your next appointments on the left, hourly and daily forecast charts on the
 right.
 
+[![CI](https://github.com/julezdean/lovelace-yet-another-clock-weather-card/actions/workflows/ci.yml/badge.svg)](https://github.com/julezdean/lovelace-yet-another-clock-weather-card/actions/workflows/ci.yml)
+
 > Not related to [pkissling/clock-weather-card](https://github.com/pkissling/clock-weather-card)
 > or any other card with a similar name. Yes, there are several. This is another
 > one.
@@ -587,6 +589,28 @@ src/
 The split is by **update frequency**, not by visual grouping: the clock owns its
 own timer and its own state so a tick re-renders one element instead of the
 forecast charts.
+
+## Releasing
+
+`dist/` is not committed. The built card reaches users as a **release asset**,
+which is also where HACS looks first: `repositories/plugin.py` in the HACS
+integration checks the newest release's assets before it ever looks at the
+repository tree. It derives the expected filename from the repository name with
+a `lovelace-` prefix stripped, so this repository resolves to
+`yet-another-clock-weather-card.js` — and `hacs.json` names it explicitly as
+well.
+
+1. Set the version in `package.json` and update the changelog.
+2. Commit and push; wait for CI to be green.
+3. Tag `vX.Y.Z` (pre-releases as `vX.Y.Z-beta.N`, which sorts correctly for
+   HACS and shields.io — `vX.Y.ZbN` does not) and push the tag.
+4. `gh release create` (with `--prerelease` for a beta).
+
+Publishing the release triggers `.github/workflows/release.yml`, which builds
+and attaches the bundle. It refuses to do so if the tag and `package.json`
+disagree, or if the version string is not actually inside the built file — a tag
+is spent the moment it is pushed, so both are checked before the asset exists
+rather than after someone installs it.
 
 ## Licence
 

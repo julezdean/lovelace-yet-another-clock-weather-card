@@ -1,0 +1,48 @@
+# Every option with its default value spelled out.
+# You never need to write all of this -- see minimal.yaml.
+type: custom:yet-another-clock-weather-card
+weather_entity: weather.home
+
+# --- clock & date ----------------------------------------------------------
+time_format: auto        # auto | 24h | 12h  (auto follows the Home Assistant setting)
+show_seconds: false
+show_date: true
+show_year: false
+date_locale: auto        # auto = Home Assistant language, or e.g. de-DE, en-GB
+
+# --- current weather -------------------------------------------------------
+show_current_weather: true
+show_feels_like: false   # only rendered when the integration reports it
+show_humidity: false
+show_wind: false
+
+# --- forecast --------------------------------------------------------------
+show_hourly_forecast: true
+forecast_hours: 12       # 1-48
+hourly_scroll: true
+show_daily_forecast: true
+forecast_days: 5         # 1-10
+show_precipitation_probability: true
+show_precipitation_amount: false
+night_icons_hourly: true # night icons for hours after dusk (needs sun.sun)
+show_hourly_extremes: true
+forecast_ratio: 1.5        # height of hours vs days; 1.5 = 3:2, range 0.5-4
+
+# --- temperature colour ----------------------------------------------------
+temperature_color_mode: static   # static | dynamic
+# dynamic paints marks cool-to-warm across an ABSOLUTE domain, so a colour
+# always means the same temperature. The bounds follow the entity's unit.
+# temperature_color_min: -5      # default -5 °C / 23 °F
+# temperature_color_max: 35      # default 35 °C / 95 °F
+
+# --- appearance ------------------------------------------------------------
+compact_mode: false
+glass_effect: false      # needs a view background image to have anything to blur
+animation: true
+# accent_color: "#03a9f4"
+# temperature_color: "#eb6834"
+# precipitation_color: "#2a78d6"
+# card_background: "rgba(0,0,0,.35)"
+# border_radius: 18px
+# card_padding: 20px
+# icon_size: 44px

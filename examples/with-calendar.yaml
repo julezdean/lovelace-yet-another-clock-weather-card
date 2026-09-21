@@ -1,0 +1,23 @@
+# The left column carries clock, date, current weather and the next few
+# appointments. Calendars have no push API in Home Assistant, so the card reads
+# them over REST -- it refreshes when a calendar entity changes state, at local
+# midnight, when the tab becomes visible, and otherwise every 15 minutes.
+type: custom:yet-another-clock-weather-card
+weather_entity: weather.home
+
+show_calendar: true
+calendar_entities:
+  - calendar.familie
+  - calendar.arbeit
+calendar_count: 3          # 1-10
+calendar_days_ahead: 14    # 1-60
+
+# Location under the current weather. Empty label = the weather entity's name.
+show_location: true
+location_name: Wohnzimmer
+
+# The hero scales with the card by default; override it if you want it larger.
+clock_size: 5.5rem
+clock_weight: "700"   # 200-700; quote it so YAML keeps it a string
+temperature_size: 3rem
+current_icon_size: 80px

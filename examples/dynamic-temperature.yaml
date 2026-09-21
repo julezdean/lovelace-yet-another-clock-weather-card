@@ -1,0 +1,12 @@
+# Marks are coloured by temperature: cool blue through a neutral midpoint to
+# warm red. The domain is absolute, so 20° looks the same in January and July --
+# a scale normalised to the visible forecast would paint the same temperature
+# blue in summer and red in winter.
+type: custom:yet-another-clock-weather-card
+weather_entity: weather.home
+temperature_color_mode: dynamic
+
+# Tune the bounds to your climate. The midpoint -- the colour-neutral
+# temperature -- sits exactly between them.
+temperature_color_min: -5   # everything at or below this is the deepest blue
+temperature_color_max: 35   # everything at or above this is the deepest red

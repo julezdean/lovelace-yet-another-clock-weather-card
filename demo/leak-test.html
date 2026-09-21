@@ -1,0 +1,95 @@
+<!doctype html>
+<!--
+  Subscription lifecycle probe.
+
+  The websocket subscription is the riskiest part of this card: Lovelace detaches
+  and re-attaches cards on every tab switch, and the card can be destroyed while
+  the subscribe promise is still in flight. This page counts open subscriptions
+  through those transitions; "open" must return to 0.
+-->
+<html lang="en">
+  <head><meta charset="utf-8" /><title>leak test</title></head>
+  <body>
+    <pre id="out">running…</pre>
+    <div id="host"></div>
+    <script type="module">
+      import { makeHass, buildForecast } from "./mock-hass.js";
+      import "../dist/yet-another-clock-weather-card.js";
+      customElements.define("ha-card", class extends HTMLElement {});
+
+      let opened = 0, closed = 0, slowResolve = 0;
+      const log = [];
+
+      function trackingHass({ slow = false } = {}) {
+        const hass = makeHass();
+        hass.connection = {
+          subscribeMessage(cb, msg) {
+            if (msg.type !== "weather/subscribe_forecast") {
+              return Promise.resolve(async () => {});
+            }
+            opened++;
+            const unsub = async () => { closed++; };
+            const payload = buildForecast(msg.forecast_type);
+            const deliver = () => cb({ type: msg.forecast_type, forecast: payload });
+            if (slow) {
+              // Resolve AFTER the card is already gone.
+              return new Promise((res) =>
+                setTimeout(() => { slowResolve++; setTimeout(deliver, 0); res(unsub); }, 120),
+              );
+            }
+            setTimeout(deliver, 0);
+            return Promise.resolve(unsub);
+          },
+        };
+        return hass;
+      }
+
+      const host = document.getElementById("host");
+      const make = (hass) => {
+        const c = document.createElement("yet-another-clock-weather-card");
+        c.setConfig({ type: "custom:yet-another-clock-weather-card", weather_entity: "weather.home" });
+        host.append(c);
+        c.hass = hass;
+        return c;
+      };
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      (async () => {
+        // 1. plain attach / detach
+        for (let i = 0; i < 5; i++) {
+          const c = make(trackingHass());
+          await wait(30);
+          c.remove();
+          await wait(30);
+        }
+        log.push(`after 5 attach/detach cycles: opened=${opened} closed=${closed}`);
+
+        // 2. tab switch: detach and re-attach the SAME element
+        const before = opened;
+        const c = make(trackingHass());
+        await wait(30);
+        for (let i = 0; i < 4; i++) {
+          c.remove(); await wait(20);
+          host.append(c); await wait(30);
+        }
+        c.remove();
+        await wait(50);
+        log.push(`after 4 detach/re-attach on one card: opened=${opened - before} closed(total)=${closed}`);
+
+        // 3. destroyed while subscribe() is still pending
+        const b2 = opened;
+        const c2 = make(trackingHass({ slow: true }));
+        await wait(20);          // well before the 120ms resolve
+        c2.remove();
+        await wait(400);
+        log.push(`torn down mid-subscribe: opened=${opened - b2} lateResolves=${slowResolve}`);
+
+        log.push("");
+        log.push(`TOTAL opened=${opened} closed=${closed} open=${opened - closed}`);
+        log.push((opened - closed) === 0 ? "PASS - no subscription left open" : "FAIL - leak");
+        document.getElementById("out").textContent = log.join("\n");
+        document.body.dataset.result = (opened - closed) === 0 ? "pass" : "fail";
+      })();
+    </script>
+  </body>
+</html>

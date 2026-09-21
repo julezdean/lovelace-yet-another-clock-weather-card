@@ -1,0 +1,31 @@
+# Tap actions use Home Assistant's standard action schema, so anything you have
+# written for another card can be pasted here unchanged.
+#
+# The card has two independent regions, so there is no bare `tap_action`:
+# name the region you mean.
+type: custom:yet-another-clock-weather-card
+weather_entity: weather.home
+
+show_calendar: true
+calendar_entities: calendar.familie
+
+# Default: more-info on the weather entity.
+weather_tap_action:
+  action: navigate
+  navigation_path: /lovelace/wetter
+
+# Default: navigate to /calendar. An appointment passes its own calendar along,
+# so `more-info` without an explicit entity opens the calendar it came from.
+calendar_tap_action:
+  action: more-info
+
+# Other shapes:
+#   action: url
+#   url_path: https://www.dwd.de
+#
+#   action: perform-action
+#   perform_action: script.wetterbericht_vorlesen
+#   data: { lautstaerke: 0.4 }
+#   target: { entity_id: media_player.kueche }
+#
+#   action: none      # also removes the hover, the focus ring and the button role

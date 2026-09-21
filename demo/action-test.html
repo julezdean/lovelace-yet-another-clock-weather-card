@@ -1,0 +1,148 @@
+<!doctype html>
+<!--
+  Tap actions.
+
+  Checks the whole path: a click on a region fires the card's intent, the card
+  resolves it against the configured action, and the right side effect happens.
+  Also that "none" removes the affordance instead of just doing nothing.
+-->
+<html lang="en">
+  <head><meta charset="utf-8" /><title>action test</title>
+    <style>
+      body { font: 13px/1.6 ui-monospace, monospace; margin: 20px; }
+      .pass { color: #0a0; } .fail { color: #c00; font-weight: 700; }
+      #cards { position: absolute; left: -10000px; width: 1032px; }
+    </style>
+  </head>
+  <body>
+    <pre id="out">running…</pre>
+    <div id="cards"></div>
+    <script type="module">
+      import { makeHass } from "./mock-hass.js";
+      import "../dist/yet-another-clock-weather-card.js";
+      customElements.define("ha-card", class extends HTMLElement {
+        connectedCallback(){ if(!this.shadowRoot) this.attachShadow({mode:"open"}).innerHTML="<slot></slot>"; }});
+
+      const lines = [];
+      let failed = 0;
+      const check = (name, ok, extra = "") => {
+        if (!ok) failed++;
+        lines.push(`${ok ? "PASS" : "FAIL"}  ${name}${extra ? " -- " + extra : ""}`);
+      };
+
+      const host = document.getElementById("cards");
+      const calls = [];
+      function hass() {
+        const h = makeHass();
+        h.callService = (d, s, data, target) => {
+          calls.push({ domain: d, service: s, data, target });
+          return Promise.resolve();
+        };
+        return h;
+      }
+
+      async function build(cfg) {
+        const card = document.createElement("yet-another-clock-weather-card");
+        card.setConfig({
+          type: "custom:yet-another-clock-weather-card",
+          weather_entity: "weather.home",
+          show_calendar: true,
+          calendar_entities: ["calendar.familie"],
+          ...cfg,
+        });
+        host.append(card);
+        card.hass = hass();
+        await new Promise((r) => setTimeout(r, 200));
+        return card;
+      }
+      const weatherEl = (c) => c.shadowRoot.querySelector("yacw-current-weather");
+      const weatherBtn = (c) => weatherEl(c).shadowRoot.querySelector(".current");
+      const calRow = (c) =>
+        c.shadowRoot.querySelector("yacw-calendar").shadowRoot.querySelector("li");
+
+      (async () => {
+        // --- default: more-info on the weather entity ---------------------
+        let card = await build({});
+        let got;
+        card.addEventListener("hass-more-info", (e) => { got = e.detail.entityId; });
+        weatherBtn(card).click();
+        check("weather default fires more-info on its entity", got === "weather.home", got);
+        check("weather is a button by default",
+              weatherBtn(card).getAttribute("role") === "button");
+        card.remove();
+
+        // --- weather: perform-action --------------------------------------
+        calls.length = 0;
+        card = await build({
+          weather_tap_action: {
+            action: "perform-action",
+            perform_action: "script.vorlesen",
+            data: { volume: 0.4 },
+            target: { entity_id: "media_player.kueche" },
+          },
+        });
+        weatherBtn(card).click();
+        check("weather perform-action calls the service",
+              calls.length === 1 && calls[0].domain === "script" &&
+              calls[0].service === "vorlesen" && calls[0].data.volume === 0.4 &&
+              calls[0].target.entity_id === "media_player.kueche",
+              JSON.stringify(calls[0] ?? null));
+        card.remove();
+
+        // --- weather: none -------------------------------------------------
+        calls.length = 0;
+        card = await build({ weather_tap_action: { action: "none" } });
+        got = undefined;
+        card.addEventListener("hass-more-info", (e) => { got = e.detail.entityId; });
+        weatherBtn(card).click();
+        check("action none does nothing", got === undefined && calls.length === 0);
+        check("action none drops the button role",
+              weatherBtn(card).getAttribute("role") === null,
+              String(weatherBtn(card).getAttribute("role")));
+        check("action none drops the tab stop",
+              weatherBtn(card).getAttribute("tabindex") === null);
+        card.remove();
+
+        // --- calendar: row click, entity falls back to its own calendar ----
+        card = await build({ calendar_tap_action: { action: "more-info" } });
+        got = undefined;
+        card.addEventListener("hass-more-info", (e) => { got = e.detail.entityId; });
+        const row = calRow(card);
+        check("calendar rows are buttons", row.getAttribute("role") === "button");
+        row.click();
+        check("calendar more-info uses the row's own calendar",
+              got === "calendar.familie", String(got));
+        card.remove();
+
+        // --- calendar default: navigate ------------------------------------
+        card = await build({});
+        const before = location.pathname;
+        let navigated;
+        window.addEventListener("location-changed", () => { navigated = location.pathname; });
+        calRow(card).click();
+        check("calendar default navigates to /calendar", navigated === "/calendar",
+              String(navigated));
+        history.replaceState(null, "", before);
+        card.remove();
+
+        // --- url safety -----------------------------------------------------
+        card = await build({
+          weather_tap_action: { action: "url", url_path: "javascript:alert(1)" },
+        });
+        let opened = null;
+        const realOpen = window.open;
+        window.open = (u) => { opened = u; return null; };
+        weatherBtn(card).click();
+        window.open = realOpen;
+        check("javascript: URL is refused", opened === null, String(opened));
+        card.remove();
+
+        lines.push("", failed ? `${failed} FAILED` : "ALL PASS");
+        document.getElementById("out").innerHTML = lines
+          .map((l) => `<span class="${l.startsWith("FAIL") ? "fail" : l.startsWith("PASS") ? "pass" : ""}">${l}</span>`)
+          .join("\n");
+        document.body.dataset.result = failed ? "fail" : "pass";
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,3 @@
+# Everything else has a default.
+type: custom:yet-another-clock-weather-card
+weather_entity: weather.home

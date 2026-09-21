@@ -1,0 +1,117 @@
+<!doctype html>
+<!--
+  How many daily columns actually render?
+
+  Daily forecast entries are timestamped at some hour of their own day -- often
+  00:00. A cutoff of "now minus 30 minutes", which is right for hourly entries,
+  silently discards today from a daily forecast, so a 7-day forecast shows 6.
+  This page pins that down against several realistic timestamp conventions.
+-->
+<html lang="en">
+  <head><meta charset="utf-8" /><title>forecast days</title>
+    <style>
+      body { font: 13px/1.6 ui-monospace, monospace; margin: 20px; }
+      .pass { color: #0a0; } .fail { color: #c00; font-weight: 700; }
+      #cards { position: absolute; left: -10000px; width: 1032px; }
+    </style>
+  </head>
+  <body>
+    <pre id="out">running…</pre>
+    <div id="cards"></div>
+    <script type="module">
+      import { makeHass } from "./mock-hass.js";
+      import "../dist/yet-another-clock-weather-card.js";
+      class HaCard extends HTMLElement {
+        connectedCallback() {
+          if (!this.shadowRoot) this.attachShadow({mode:"open"}).innerHTML = "<slot></slot>";
+        }
+      }
+      customElements.define("ha-card", HaCard);
+
+      // Three conventions real integrations use for the daily timestamp.
+      function days(count, convention, firstOffset = 0) {
+        const out = [];
+        for (let i = 0; i < count; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() + i + firstOffset);  // 0 = starts TODAY
+          if (convention === "midnight") d.setHours(0, 0, 0, 0);
+          if (convention === "noon") d.setHours(12, 0, 0, 0);
+          if (convention === "now") { /* leave the current time of day */ }
+          out.push({
+            datetime: d.toISOString(),
+            condition: "partlycloudy",
+            temperature: 20 + i,
+            templow: 10 + i,
+            precipitation_probability: 10 * i,
+          });
+        }
+        return out;
+      }
+
+      function hassWith(daily) {
+        const h = makeHass();
+        h.connection = {
+          subscribeMessage(cb, msg) {
+            if (msg.type !== "weather/subscribe_forecast") return Promise.resolve(async () => {});
+            const payload = msg.forecast_type === "daily" ? daily : [];
+            setTimeout(() => cb({ type: msg.forecast_type, forecast: payload }), 5);
+            return Promise.resolve(async () => {});
+          },
+        };
+        return h;
+      }
+
+      const host = document.getElementById("cards");
+      async function render(requested, supplied, convention, firstOffset = 0) {
+        const card = document.createElement("yet-another-clock-weather-card");
+        card.setConfig({
+          type: "custom:yet-another-clock-weather-card",
+          weather_entity: "weather.home",
+          forecast_days: requested,
+          show_hourly_forecast: false,
+        });
+        host.append(card);
+        card.hass = hassWith(days(supplied, convention, firstOffset));
+        await new Promise((r) => setTimeout(r, 120));
+        const daily = card.shadowRoot.querySelector("yacw-daily-forecast");
+        const labels = daily
+          ? [...daily.shadowRoot.querySelectorAll(".labels .cell")].length
+          : 0;
+        card.remove();
+        return labels;
+      }
+
+      (async () => {
+        const lines = [];
+        let failed = 0;
+        const now = new Date();
+        lines.push(`local time: ${now.toTimeString().slice(0, 5)}`, "");
+        lines.push("requested  supplied  timestamp   starts     rendered  expected");
+        // firstOffset -1 models integrations that include yesterday: that entry
+        // is correctly dropped, so seven supplied days are only six future ones.
+        const CASES = [
+          [5, 10, 0], [7, 10, 0], [10, 10, 0], [7, 7, 0], [10, 7, 0], [7, 7, -1],
+        ];
+        for (const convention of ["midnight", "noon", "now"]) {
+          for (const [req, sup, off] of CASES) {
+            const got = await render(req, sup, convention, off);
+            const want = Math.min(req, sup + off);
+            const ok = got === want;
+            if (!ok) failed++;
+            lines.push(
+              `${String(req).padStart(9)}  ${String(sup).padStart(8)}  ` +
+              `${convention.padEnd(10)}  ${(off ? "yesterday" : "today").padEnd(9)}  ` +
+              `${String(got).padStart(8)}  ` +
+              `${String(want).padStart(8)}  ${ok ? "ok" : "MISMATCH"}`,
+            );
+          }
+        }
+        lines.push("", failed ? `${failed} MISMATCHES` : "ALL OK");
+        document.getElementById("out").innerHTML = lines
+          .map((l) => `<span class="${l.includes("MISMATCH") ? "fail" : l === "ALL OK" ? "pass" : ""}">${l}</span>`)
+          .join("\n");
+        document.body.dataset.result = failed ? "fail" : "pass";
+      })();
+    </script>
+  </body>
+</html>

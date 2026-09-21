@@ -1,0 +1,12 @@
+# The card needs more width than a single section can give it.
+# A Home Assistant section is capped at 500px, so the horizontal layout only
+# appears once the SECTION spans two grid columns.
+type: sections
+sections:
+  - type: grid
+    column_span: 2          # <- this is the part people miss
+    cards:
+      - type: custom:yet-another-clock-weather-card
+        weather_entity: weather.home
+        forecast_hours: 12
+        forecast_days: 5

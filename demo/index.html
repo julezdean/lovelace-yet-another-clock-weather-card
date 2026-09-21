@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Horizontal Clock Weather - demo</title>
+    <style>
+      :root {
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --divider-color: rgba(0, 0, 0, 0.12);
+        --primary-color: #03a9f4;
+        --card-background-color: #fff;
+        --ha-card-background: #fff;
+        --ha-card-border-radius: 12px;
+        --error-color: #db4437;
+        --demo-page-bg: #f2f4f7;
+      }
+      body.dark {
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --divider-color: rgba(255, 255, 255, 0.12);
+        --card-background-color: #1c1c1c;
+        --ha-card-background: #1c1c1c;
+        --demo-page-bg: #111314;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--demo-page-bg);
+        font-family: Roboto, -apple-system, "Segoe UI", sans-serif;
+        color: var(--primary-text-color);
+      }
+      h2 {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--secondary-text-color);
+        margin: 28px 0 8px;
+      }
+      h2:first-of-type { margin-top: 0; }
+      .stage { margin-bottom: 8px; }
+      .w1032 { width: 1032px; }
+      .w700 { width: 700px; }
+      .w500 { width: 500px; }
+      .w360 { width: 360px; }
+      .bar { display: flex; gap: 8px; margin-bottom: 20px; }
+      button {
+        font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: var(--ha-card-background); color: inherit; cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <button id="theme">Toggle dark</button>
+      <button id="anim">Toggle animation</button>
+    </div>
+    <div id="stages"></div>
+
+    <script type="module">
+      import { makeHass } from "./mock-hass.js";
+      import "../dist/yet-another-clock-weather-card.js";
+
+      // Home Assistant's own <ha-card>. The card renders inside one, so the
+      // demo has to provide a stand-in with the same box behaviour.
+      class HaCard extends HTMLElement {
+        connectedCallback() {
+          if (this.shadowRoot) return;
+          const root = this.attachShadow({ mode: "open" });
+          root.innerHTML = `<style>
+            :host {
+              display: block;
+              background: var(--ha-card-background, var(--card-background-color, #fff));
+              border-radius: var(--ha-card-border-radius, 12px);
+              box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0,0,0,.12));
+            }
+          </style><slot></slot>`;
+        }
+      }
+      customElements.define("ha-card", HaCard);
+
+      const STAGES = [
+        { title: "Wide - 1032px (section with column_span: 2)", cls: "w1032", cfg: {} },
+        { title: "Wide threshold - 700px", cls: "w700", cfg: {} },
+        { title: "One section - 500px", cls: "w500", cfg: {} },
+        { title: "Phone - 360px", cls: "w360", cfg: {} },
+        { title: "Entity unavailable", cls: "w1032", cfg: {}, hass: { unavailable: true } },
+        { title: "Forecast not supported", cls: "w1032", cfg: {}, hass: { forecastError: true } },
+        { title: "Forecast returned null", cls: "w1032", cfg: {}, hass: { nullForecast: true } },
+        {
+          title: "All extras on",
+          cls: "w1032",
+          cfg: {
+            show_seconds: true, show_year: true, show_feels_like: true,
+            show_humidity: true, show_wind: true, show_precipitation_amount: true,
+          },
+        },
+        { title: "Compact mode", cls: "w1032", cfg: { compact_mode: true } },
+        {
+          title: "Calendar in the hero",
+          cls: "w1032",
+          cfg: {
+            show_calendar: true,
+            calendar_entities: ["calendar.familie"],
+            calendar_count: 3,
+          },
+        },
+        {
+          title: "Calendar + bigger clock + location off",
+          cls: "w1032",
+          cfg: {
+            show_calendar: true,
+            calendar_entities: "calendar.familie",
+            calendar_count: 4,
+            clock_size: "5.5rem",
+            show_location: false,
+          },
+        },
+        {
+          title: "Dynamic temperature colour (default domain -5 to 35 °C)",
+          cls: "w1032",
+          cfg: { temperature_color_mode: "dynamic" },
+        },
+        {
+          title: "Dynamic, cold week (domain -15 to 25 °C)",
+          cls: "w1032",
+          cfg: {
+            temperature_color_mode: "dynamic",
+            temperature_color_min: -15,
+            temperature_color_max: 25,
+          },
+          hass: { cold: true },
+        },
+      ];
+
+      const cards = [];
+      const stages = document.getElementById("stages");
+
+      for (const stage of STAGES) {
+        const h = document.createElement("h2");
+        h.textContent = stage.title;
+        stages.append(h);
+
+        const wrap = document.createElement("div");
+        wrap.className = `stage ${stage.cls}`;
+
+        const card = document.createElement("yet-another-clock-weather-card");
+        card.setConfig({
+          type: "custom:yet-another-clock-weather-card",
+          weather_entity: "weather.home",
+          forecast_hours: 12,
+          forecast_days: 5,
+          ...stage.cfg,
+        });
+        card.hass = makeHass({ dark: false, ...(stage.hass ?? {}) });
+        cards.push({ card, overrides: stage.hass ?? {} });
+
+        wrap.append(card);
+        stages.append(wrap);
+      }
+
+      let dark = false;
+      document.getElementById("theme").addEventListener("click", () => {
+        dark = !dark;
+        document.body.classList.toggle("dark", dark);
+        for (const { card, overrides } of cards) {
+          card.toggleAttribute("dark", dark);
+          card.hass = makeHass({ dark, ...overrides });
+        }
+      });
+
+      let animated = true;
+      document.getElementById("anim").addEventListener("click", () => {
+        animated = !animated;
+        for (const { card } of cards) {
+          const cfg = { ...card._config, animation: animated };
+          card.setConfig(cfg);
+        }
+      });
+
+      // The card sets [dark] from hass.themes.darkMode; mirror it for the stub.
+      for (const { card } of cards) card.toggleAttribute("dark", false);
+    </script>
+  </body>
+</html>

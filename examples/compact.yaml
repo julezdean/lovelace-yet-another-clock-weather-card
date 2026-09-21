@@ -1,0 +1,8 @@
+# Smaller icons, shorter charts, tighter spacing -- for a dashboard where the
+# card is a strip rather than the centrepiece.
+type: custom:yet-another-clock-weather-card
+weather_entity: weather.home
+compact_mode: true
+forecast_hours: 8
+forecast_days: 4
+show_precipitation_probability: true

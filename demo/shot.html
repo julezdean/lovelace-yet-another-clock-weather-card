@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  Single-card stage for repository screenshots.
+
+  The page renders exactly one card at exactly the requested size, so a viewport
+  screenshot IS the image -- no cropping, no guessing at coordinates.
+
+  Query parameters:
+    w     card width in px           (default 1032)
+    dark  1 for dark mode            (default 0)
+    cfg   extra card config as JSON  (default {})
+    cold  1 for a sub-zero dataset   (default 0)
+  See docs/screenshots.md for the exact sizes used in the README.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>shot</title>
+    <style>
+      :root {
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --divider-color: rgba(0, 0, 0, 0.12);
+        --primary-color: #03a9f4;
+        --card-background-color: #fff;
+        --ha-card-background: #fff;
+        --ha-card-border-radius: 12px;
+        --error-color: #db4437;
+        --page: #f2f4f7;
+      }
+      body.dark {
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --divider-color: rgba(255, 255, 255, 0.12);
+        --card-background-color: #1c1c1c;
+        --ha-card-background: #1c1c1c;
+        --page: #111314;
+      }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--page);
+        font-family: Roboto, -apple-system, "Segoe UI", sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        padding: 24px; box-sizing: border-box;
+      }
+      #stage { flex: 0 0 auto; }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <script type="module">
+      import { makeHass } from "./mock-hass.js";
+      import "../dist/yet-another-clock-weather-card.js";
+
+      class HaCard extends HTMLElement {
+        connectedCallback() {
+          if (this.shadowRoot) return;
+          this.attachShadow({ mode: "open" }).innerHTML = `<style>
+            :host{display:block;
+              background:var(--ha-card-background,var(--card-background-color,#fff));
+              border-radius:var(--ha-card-border-radius,12px);
+              box-shadow:var(--ha-card-box-shadow,0 2px 6px rgba(0,0,0,.12));}
+          </style><slot></slot>`;
+        }
+      }
+      customElements.define("ha-card", HaCard);
+
+      const params = new URLSearchParams(location.search);
+      const width = Number(params.get("w") ?? 1032);
+      const dark = params.get("dark") === "1";
+      const extra = JSON.parse(params.get("cfg") ?? "{}");
+      const cold = params.get("cold") === "1";
+
+      document.body.classList.toggle("dark", dark);
+      const stage = document.getElementById("stage");
+      stage.style.width = `${width}px`;
+
+      const card = document.createElement("yet-another-clock-weather-card");
+      card.setConfig({
+        type: "custom:yet-another-clock-weather-card",
+        weather_entity: "weather.home",
+        forecast_hours: 12,
+        forecast_days: 5,
+        ...extra,
+      });
+      card.hass = makeHass({ dark, cold, seed: 7 });
+      card.toggleAttribute("dark", dark);
+      stage.append(card);
+
+      // Signal for the screenshot tooling: the forecast has arrived and the
+      // first paint after it is done.
+      customElements.whenDefined("yet-another-clock-weather-card").then(() => {
+        setTimeout(() => {
+          requestAnimationFrame(() => document.body.setAttribute("data-ready", "1"));
+        }, 250);
+      });
+    </script>
+  </body>
+</html>

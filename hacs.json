@@ -1,0 +1,6 @@
+{
+  "name": "Yet Another Clock Weather Card",
+  "filename": "yet-another-clock-weather-card.js",
+  "render_readme": true,
+  "homeassistant": "2024.4.0"
+}

@@ -1,0 +1,177 @@
+<!doctype html>
+<!--
+  Visual-editor probe.
+
+  Home Assistant's <ha-form> is not available outside HA, so this page provides a
+  stand-in that copies the one semantic that actually bites:
+
+      getValue = (obj, item) => obj ? (!item.name || item.flatten ? obj : obj[item.name]) : undefined
+      -- frontend/src/components/ha-form/ha-form.ts
+
+  An expandable section WITHOUT `flatten` reads and writes under data[name], so
+  every grouped option silently binds to nothing. This page fails if that
+  regresses.
+-->
+<html lang="en">
+  <head><meta charset="utf-8" /><title>editor test</title>
+    <style>
+      body { font: 14px/1.5 -apple-system, sans-serif; margin: 24px; display: flex; gap: 32px; }
+      #report { white-space: pre; font-family: ui-monospace, monospace; font-size: 12px; }
+      fieldset { border: 1px solid #ccc; border-radius: 8px; margin: 0 0 10px; }
+      label { display: block; margin: 2px 0; }
+      .pass { color: #0a0; } .fail { color: #c00; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <div><h3>Editor</h3><div id="host"></div></div>
+    <div><h3>Result</h3><div id="report">running…</div></div>
+
+    <script type="module">
+      import { makeHass } from "./mock-hass.js";
+      import "../dist/yet-another-clock-weather-card.js";
+      customElements.define("ha-card", class extends HTMLElement {});
+
+      const getValue = (obj, item) =>
+        obj ? (!item.name || item.flatten ? obj : obj[item.name]) : undefined;
+
+      class HaFormStub extends HTMLElement {
+        set schema(v) { this._schema = v; this._render(); }
+        set data(v) { this._data = v; this._render(); }
+        set hass(v) { this._hass = v; this._render(); }
+        set computeLabel(v) { this._label = v; this._render(); }
+
+        // ha-form writes a leaf into the container it was rendered from. For a
+        // non-flattened expandable that container is data[name], so the value
+        // lands nested -- which is exactly the failure mode being guarded.
+        _emit(path, name, value) {
+          const next = { ...this._data };
+          let target = next;
+          for (const key of path) {
+            target[key] = { ...(target[key] ?? {}) };
+            target = target[key];
+          }
+          target[name] = value;
+          this.dispatchEvent(new CustomEvent("value-changed", {
+            detail: { value: next }, bubbles: true, composed: true,
+          }));
+        }
+
+        _field(item, data, path) {
+          const value = data ? data[item.name] : undefined;
+          const label = this._label ? this._label(item) : item.name;
+          const wrap = document.createElement("label");
+          let input;
+          const sel = item.selector ?? {};
+          if ("boolean" in sel) {
+            input = document.createElement("input");
+            input.type = "checkbox"; input.checked = !!value;
+            input.onchange = () => this._emit(path, item.name, input.checked);
+          } else if ("number" in sel) {
+            input = document.createElement("input");
+            input.type = "number"; input.value = value ?? "";
+            input.onchange = () => this._emit(path, item.name, Number(input.value));
+          } else if ("select" in sel) {
+            input = document.createElement("select");
+            for (const o of sel.select.options) {
+              const op = document.createElement("option");
+              op.value = o.value; op.textContent = o.label;
+              if (o.value === value) op.selected = true;
+              input.append(op);
+            }
+            input.onchange = () => this._emit(path, item.name, input.value);
+          } else {
+            input = document.createElement("input");
+            input.type = "text"; input.value = value ?? "";
+            input.onchange = () => this._emit(path, item.name, input.value);
+          }
+          input.dataset.field = item.name;
+          wrap.append(input, " ", label);
+          return wrap;
+        }
+
+        _walk(schema, data, into, path = []) {
+          for (const item of schema) {
+            if (item.type === "expandable") {
+              const fs = document.createElement("fieldset");
+              const lg = document.createElement("legend");
+              lg.textContent = item.title ?? item.name;
+              fs.append(lg);
+              // This is the line under test.
+              const childPath = !item.name || item.flatten ? path : [...path, item.name];
+              this._walk(item.schema, getValue(data, item), fs, childPath);
+              into.append(fs);
+            } else {
+              into.append(this._field(item, data, path));
+            }
+          }
+        }
+
+        _render() {
+          if (!this._schema || !this._data || !this._hass) return;
+          this.replaceChildren();
+          this._walk(this._schema, this._data, this);
+        }
+      }
+      customElements.define("ha-form", HaFormStub);
+
+      const lines = [];
+      const check = (name, ok, extra = "") => {
+        lines.push(`${ok ? "PASS" : "FAIL"}  ${name}${extra ? " -- " + extra : ""}`);
+        return ok;
+      };
+
+      (async () => {
+        const Card = customElements.get("yet-another-clock-weather-card");
+        check("card exposes getConfigElement", typeof Card.getConfigElement === "function");
+
+        const editor = await Card.getConfigElement();
+        check("getConfigElement resolves an element", editor instanceof HTMLElement,
+              editor && editor.tagName.toLowerCase());
+        check("editor has setConfig", typeof editor.setConfig === "function");
+
+        document.getElementById("host").append(editor);
+        editor.setConfig({ type: "custom:yet-another-clock-weather-card", weather_entity: "weather.home" });
+        // Lovelace assigns hass AFTER setConfig -- the order that broke it.
+        editor.hass = makeHass();
+        await new Promise((r) => setTimeout(r, 80));
+
+        const form = editor.shadowRoot.querySelector("ha-form");
+        check("editor rendered an ha-form", !!form);
+
+        const fields = form ? [...form.querySelectorAll("[data-field]")] : [];
+        const names = fields.map((f) => f.dataset.field);
+        check("top-level field bound", names.includes("weather_entity"));
+        check("grouped controls rendered", names.includes("show_seconds") &&
+              names.includes("forecast_days") && names.includes("glass_effect"),
+              `${names.length} fields`);
+
+        const seconds = fields.find((f) => f.dataset.field === "show_seconds");
+        const daysField = fields.find((f) => f.dataset.field === "forecast_days");
+        // Rendering a control is not the same as binding it: without flatten the
+        // control appears but reads undefined.
+        check("grouped controls READ their value", daysField && daysField.value === "5",
+              daysField ? `forecast_days="${daysField.value}"` : "missing");
+
+        let emitted;
+        editor.addEventListener("config-changed", (e) => { emitted = e.detail.config; });
+        if (seconds) { seconds.checked = true; seconds.onchange(); }
+        await new Promise((r) => setTimeout(r, 30));
+
+        check("config-changed fired", !!emitted);
+        check("grouped controls WRITE to the flat key", emitted && emitted.show_seconds === true);
+        check("config stays flat", emitted &&
+              !["clock", "current", "forecast", "appearance"].some((k) => k in emitted),
+              emitted ? Object.keys(emitted).join(",") : "");
+        check("defaults are not written back", emitted && Object.keys(emitted).length <= 3,
+              emitted ? JSON.stringify(emitted) : "");
+
+        const failed = lines.filter((l) => l.startsWith("FAIL")).length;
+        lines.push("", failed ? `${failed} FAILED` : "ALL PASS");
+        document.getElementById("report").innerHTML = lines
+          .map((l) => `<span class="${l.startsWith("FAIL") ? "fail" : l.startsWith("PASS") ? "pass" : ""}">${l}</span>`)
+          .join("\n");
+        document.body.dataset.result = failed ? "fail" : "pass";
+      })();
+    </script>
+  </body>
+</html>

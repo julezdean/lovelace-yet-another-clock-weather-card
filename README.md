@@ -90,14 +90,14 @@ that is the whole of steps 1 and 2. By hand:
 
    | Field | Value |
    |---|---|
-   | URL | `/local/yet-another-clock-weather-card.js?v=0.1.0` |
+   | URL | `/local/yet-another-clock-weather-card.js?v=0.1.1` |
    | Type | **JavaScript Module** |
 
    Or in YAML mode:
 
    ```yaml
    resources:
-     - url: /local/yet-another-clock-weather-card.js?v=0.1.0
+     - url: /local/yet-another-clock-weather-card.js?v=0.1.1
        type: module
    ```
 

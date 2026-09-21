@@ -1,6 +1,6 @@
 {
   "name": "yet-another-clock-weather-card",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Horizontal clock, date and weather card for Home Assistant",
   "type": "module",
   "scripts": {

@@ -12,8 +12,13 @@ declare const __CARD_NAME__: string;
 export const CARD_TAG = __CARD_NAME__;
 export const EDITOR_TAG = `${CARD_TAG}-editor`;
 export const CARD_VERSION = __CARD_VERSION__;
+/**
+ * The repository is prefixed, the card tag is not: the prefix groups the repo
+ * among Lovelace cards, while `type: custom:...` is typed by every user and
+ * stays as short as it can be.
+ */
 export const REPO_URL =
-  "https://github.com/julezdean/yet-another-clock-weather-card";
+  "https://github.com/julezdean/lovelace-yet-another-clock-weather-card";
 
 /** Minimum Home Assistant version. Below 2024.4 the weather entity still carried
  *  a legacy `forecast` attribute and two code paths would be needed. */

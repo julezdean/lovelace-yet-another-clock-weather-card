@@ -304,6 +304,14 @@ So this part does poll -- as rarely as it can while staying correct:
 Every timer stops while the card is detached or the tab is hidden. A calendar
 that fails to load does not blank the others.
 
+An event covering more than one day shows how far it runs (`until 26.9.`)
+instead of a clock time, and once it is under way the date column says "Today"
+rather than the date it started on — a holiday that began last week is about
+today, not about last week. The end of an all-day event is **exclusive**, the
+way Home Assistant treats it (`start <= now < end`), so a single day on the 23rd
+arrives with end = the 24th and the last day is one less. An integration that
+reports `end == start` anyway is clamped rather than rendered backwards.
+
 ### How the two forecast blocks share the height
 
 `forecast_ratio` is the height of the hourly block relative to the daily one,
@@ -551,6 +559,10 @@ npm run build && python3 -m http.server 4173
 ```
 
 then open <http://localhost:4173/demo/>.
+
+`demo/calendar-test.html` covers the date labelling, which turns entirely on
+the exclusive end of an all-day event: single and multi-day, an event already
+running, a timed one, and a non-conforming `end == start`.
 
 `demo/action-test.html` clicks each region and checks that the configured action
 actually happens -- including that `none` removes the affordance and that a

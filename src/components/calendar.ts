@@ -9,6 +9,8 @@ export interface CalendarLabels {
   today: string;
   tomorrow: string;
   allDay: string;
+  /** Prefix for the last day of a multi-day event, e.g. "until". */
+  until: string;
   empty: string;
 }
 
@@ -25,10 +27,55 @@ export class YacwCalendar extends LitElement {
    * they are what the reader is actually scanning for, and a weekday name makes
    * them do the arithmetic.
    */
+  /**
+   * The last calendar day an event covers.
+   *
+   * For an all-day event the end is EXCLUSIVE -- Home Assistant treats an event
+   * as running while `start <= now < end` (calendar/__init__.py), so a one-day
+   * event on the 23rd carries end = the 24th. Subtracting a day gives the day a
+   * reader would call the last one. A non-conforming integration that reports
+   * end == start would otherwise land before the start, so that is clamped.
+   */
+  private _lastDay(event: CalendarEvent): Date | undefined {
+    if (!event.end) return undefined;
+    if (!event.allDay) return event.end;
+    const previous = new Date(
+      event.end.getFullYear(),
+      event.end.getMonth(),
+      event.end.getDate() - 1,
+    );
+    return previous.getTime() < event.start.getTime() ? event.start : previous;
+  }
+
+  private _spansDays(event: CalendarEvent): boolean {
+    const last = this._lastDay(event);
+    if (!last) return false;
+    const zone = this.ctx.timeZone;
+    return dayKey(last, zone) > dayKey(event.start, zone);
+  }
+
+  /** True while the event is running, which for a multi-day event is what
+   *  makes its start date irrelevant to the reader. */
+  private _isRunning(event: CalendarEvent): boolean {
+    const now = Date.now();
+    return event.start.getTime() <= now && !!event.end && now < event.end.getTime();
+  }
+
+  private _shortDate(date: Date): string {
+    return new Intl.DateTimeFormat(this.ctx.locale, {
+      day: "numeric",
+      month: "numeric",
+      timeZone: this.ctx.timeZone,
+    }).format(date);
+  }
+
   private _dayLabel(event: CalendarEvent): string {
     const zone = this.ctx.timeZone;
     const key = dayKey(event.start, zone);
     const now = new Date();
+    // A multi-day event that began days ago is about today, not about the date
+    // it started on -- showing the start date reads as a stale entry.
+    if (this._isRunning(event) && key < dayKey(now, zone)) return this.labels.today;
     if (key === dayKey(now, zone)) return this.labels.today;
     const tomorrow = new Date(now.getTime() + 86_400_000);
     if (key === dayKey(tomorrow, zone)) return this.labels.tomorrow;
@@ -62,6 +109,34 @@ export class YacwCalendar extends LitElement {
     }
   }
 
+  /**
+   * The "when" column: a clock time, "all day", or -- once an event covers more
+   * than one day -- how far it runs. The start day is already in the column to
+   * the left, so the useful second value is the end.
+   */
+  private _whenLabel(event: CalendarEvent): string {
+    const last = this._lastDay(event);
+    if (this._spansDays(event) && last) {
+      return `${this.labels.until} ${this._shortDate(last)}`;
+    }
+    return event.allDay
+      ? this.labels.allDay
+      : formatEventTime(event.start, this.ctx);
+  }
+
+  /** Full detail for the tooltip and for screen readers, where there is room. */
+  private _detail(event: CalendarEvent): string {
+    const parts = [event.summary];
+    if (!event.allDay) parts.push(formatEventTime(event.start, this.ctx));
+    const last = this._lastDay(event);
+    if (this._spansDays(event) && last) {
+      parts.push(`${this.labels.until} ${this._shortDate(last)}`);
+    } else if (event.allDay) {
+      parts.push(this.labels.allDay);
+    }
+    return parts.join(" · ");
+  }
+
   protected override render() {
     const events = this.events.slice(0, this.count);
 
@@ -82,15 +157,9 @@ export class YacwCalendar extends LitElement {
                     >
                       <span class="when">
                         <span class="day">${this._dayLabel(event)}</span>
-                        <span class="time"
-                          >${
-                            event.allDay
-                              ? this.labels.allDay
-                              : formatEventTime(event.start, this.ctx)
-                          }</span
-                        >
+                        <span class="time">${this._whenLabel(event)}</span>
                       </span>
-                      <span class="summary" title=${event.summary}
+                      <span class="summary" title=${this._detail(event)}
                         >${event.summary}</span
                       >
                     </li>

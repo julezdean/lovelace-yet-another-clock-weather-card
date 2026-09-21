@@ -14,7 +14,7 @@ calendar_days_ahead: 14    # 1-60
 
 # Location under the current weather. Empty label = the weather entity's name.
 show_location: true
-location_name: Wohnzimmer
+location_name: Bremen
 
 # The hero scales with the card by default; override it if you want it larger.
 clock_size: 5.5rem

@@ -1,0 +1,85 @@
+<!doctype html>
+<!--
+  Calendar labelling.
+
+  The end of an all-day event is EXCLUSIVE: Home Assistant runs an event while
+  `start <= now < end` (calendar/__init__.py), so a single day on the 23rd
+  carries end = the 24th. Every case below turns on getting that subtraction
+  right, including an integration that does not follow the rule.
+-->
+<html lang="en">
+  <head><meta charset="utf-8" /><title>calendar labels</title>
+    <style>body{font:13px/1.6 ui-monospace,monospace;margin:20px}
+      .pass{color:#0a0}.fail{color:#c00;font-weight:700}
+      #cards{position:absolute;left:-10000px;width:600px}</style>
+  </head>
+  <body>
+    <pre id="o">running…</pre><div id="cards"></div>
+    <script type="module">
+      import { makeHass } from "./mock-hass.js";
+      import "../dist/yet-another-clock-weather-card.js";
+      customElements.define("ha-card", class extends HTMLElement {
+        connectedCallback(){ if(!this.shadowRoot) this.attachShadow({mode:"open"})
+          .innerHTML="<style>:host{display:block}</style><slot></slot>"; }});
+
+      const iso = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const day = (off) => { const d = new Date(); d.setDate(d.getDate()+off); d.setHours(0,0,0,0); return d; };
+      const at  = (off,h) => { const d = new Date(); d.setDate(d.getDate()+off); d.setHours(h,0,0,0); return d; };
+
+      const CASES = [
+        { name: "single all-day today",
+          ev: { summary:"A", start:{date:iso(day(0))}, end:{date:iso(day(1))} },
+          day: "Heute", when: "Ganztägig" },
+        { name: "single all-day tomorrow",
+          ev: { summary:"B", start:{date:iso(day(1))}, end:{date:iso(day(2))} },
+          day: "Morgen", when: "Ganztägig" },
+        { name: "multi-day all-day, starts tomorrow, 5 days",
+          ev: { summary:"C", start:{date:iso(day(1))}, end:{date:iso(day(6))} },
+          day: "Morgen", whenStarts: "bis" },
+        { name: "multi-day all-day, running since yesterday",
+          ev: { summary:"D", start:{date:iso(day(-1))}, end:{date:iso(day(2))} },
+          day: "Heute", whenStarts: "bis" },
+        { name: "timed event today",
+          ev: { summary:"E", start:{dateTime:at(0,23).toISOString()}, end:{dateTime:at(0,23).toISOString()} },
+          day: "Heute", whenNot: "bis" },
+        { name: "non-conforming end == start",
+          ev: { summary:"F", start:{date:iso(day(1))}, end:{date:iso(day(1))} },
+          day: "Morgen", when: "Ganztägig" },
+      ];
+
+      function hassWith(events) {
+        const h = makeHass();
+        h.callApi = async (m,p) => (m==="GET" && p.startsWith("calendars/")) ? events : [];
+        return h;
+      }
+
+      const lines = []; let failed = 0;
+      const check = (n, ok, extra="") => { if(!ok) failed++;
+        lines.push(`${ok?"PASS":"FAIL"}  ${n}${extra?"  -- "+extra:""}`); };
+
+      for (const c of CASES) {
+        const card = document.createElement("yet-another-clock-weather-card");
+        card.setConfig({ type:"custom:yet-another-clock-weather-card", weather_entity:"weather.home",
+          show_calendar:true, calendar_entities:["calendar.familie"], calendar_count:1,
+          show_hourly_forecast:false, show_daily_forecast:false });
+        document.getElementById("cards").append(card);
+        card.hass = hassWith([c.ev]);
+        await new Promise(r=>setTimeout(r,120));
+        const cal = card.shadowRoot.querySelector("yacw-calendar");
+        const d = cal?.shadowRoot.querySelector(".day")?.textContent.trim();
+        const w = cal?.shadowRoot.querySelector(".time")?.textContent.trim();
+        let ok = d === c.day;
+        if (c.when) ok = ok && w === c.when;
+        if (c.whenStarts) ok = ok && !!w && w.startsWith(c.whenStarts);
+        if (c.whenNot) ok = ok && !!w && !w.startsWith(c.whenNot);
+        check(c.name, ok, `day="${d}" when="${w}"`);
+        card.remove();
+      }
+
+      lines.push("", failed ? `${failed} FAILED` : "ALL PASS");
+      document.getElementById("o").innerHTML = lines.map(l =>
+        `<span class="${l.startsWith("FAIL")?"fail":l.startsWith("PASS")?"pass":""}">${l}</span>`).join("\n");
+      document.body.dataset.result = failed ? "fail" : "pass";
+    </script>
+  </body>
+</html>

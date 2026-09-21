@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A calendar event covering more than one day now says so. It used to show only
+  its start date and "All day", so a week of holiday looked like a single day,
+  and once it was under way it kept advertising the date it began on — which
+  reads as a stale entry rather than as something happening now. Multi-day
+  events show how far they run, and a running one is labelled "Today".
+- The last day of an all-day event was never computed. Home Assistant treats an
+  event as running while `start <= now < end`, so the end is exclusive and a
+  single day on the 23rd carries end = the 24th; the last day is one less. An
+  integration that reports `end == start` regardless is clamped to the start
+  rather than rendered as a negative span.
+
+### Changed
+
+- The demo and the example configuration use a city as the location label. A
+  weather entity named after a room made no sense.
+
 ## [0.1.0] - 2026-09-21
 
 First release.

@@ -308,6 +308,7 @@ export class YetAnotherClockWeatherCard extends LitElement {
                       today: t("today"),
                       tomorrow: t("tomorrow"),
                       allDay: t("all_day"),
+                      until: t("until"),
                       empty: this._calendar.error
                         ? t("calendar_error")
                         : t("no_events"),

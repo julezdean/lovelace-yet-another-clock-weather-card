@@ -68,15 +68,22 @@ function buildCalendar() {
     start: { dateTime: at(dayOffset, hour, minute).toISOString() },
     end: { dateTime: at(dayOffset, hour + 1, minute).toISOString() },
   });
-  const allDay = (dayOffset, summary) => {
-    const d = at(dayOffset, 0);
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    return { summary, start: { date: iso }, end: { date: iso } };
-  };
+  const isoDate = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  // The end of an all-day event is EXCLUSIVE, the way Home Assistant and
+  // RFC 5545 define it: a single day on the 23rd carries end = the 24th.
+  const allDay = (dayOffset, summary, days = 1) => ({
+    summary,
+    start: { date: isoDate(at(dayOffset, 0)) },
+    end: { date: isoDate(at(dayOffset + days, 0)) },
+  });
   return [
     timed(0, 18, 30, "Zahnarzt", "Hauptstraße 4"),
     timed(1, 9, 0, "Standup"),
-    allDay(2, "Urlaub"),
+    allDay(2, "Urlaub", 5),
+    // Started yesterday and still running: the start date is stale, "today" is
+    // what the reader needs.
+    allDay(-1, "Messe Hannover", 3),
     timed(3, 14, 15, "Elterngespräch Schule"),
     timed(5, 20, 0, "Kino mit Anna"),
   ];
@@ -91,7 +98,7 @@ export function makeHass(overrides = {}) {
     entity_id: "weather.home",
     state: overrides.condition ?? "partlycloudy",
     attributes: {
-      friendly_name: overrides.locationName ?? "Wohnzimmer",
+      friendly_name: overrides.locationName ?? "Bremen",
       supported_features: 1 | 2, // FORECAST_DAILY | FORECAST_HOURLY
       temperature: overrides.cold ? -3 : 18,
       temperature_unit: "°C",

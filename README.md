@@ -5,6 +5,10 @@ your next appointments on the left, hourly and daily forecast charts on the
 right.
 
 [![CI](https://github.com/julezdean/lovelace-yet-another-clock-weather-card/actions/workflows/ci.yml/badge.svg)](https://github.com/julezdean/lovelace-yet-another-clock-weather-card/actions/workflows/ci.yml)
+[![hacs](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Release](https://img.shields.io/github/v/release/julezdean/lovelace-yet-another-clock-weather-card?sort=semver)](https://github.com/julezdean/lovelace-yet-another-clock-weather-card/releases)
+
+[![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=julezdean&repository=lovelace-yet-another-clock-weather-card&category=plugin)
 
 > Not related to [pkissling/clock-weather-card](https://github.com/pkissling/clock-weather-card)
 > or any other card with a similar name. Yes, there are several. This is another
@@ -56,8 +60,13 @@ wider than the container it is given.
 
 ### HACS
 
-1. HACS → **Frontend** → ⋮ → **Custom repositories**
-2. Add this repository, category **Dashboard** (previously *Lovelace/Plugin*)
+The badge above opens this repository straight in your own Home Assistant —
+that is the whole of steps 1 and 2. By hand:
+
+1. HACS → ⋮ → **Custom repositories**
+2. Add this repository, type **Dashboard**. (HACS still calls the category
+   `plugin` on the wire; "Lovelace" and "Plugin" are the older names for the
+   same thing.)
 3. Install **Yet Another Clock Weather Card**
 4. HACS offers to add the Lovelace resource. If it does not, add it manually
    (below).
@@ -611,6 +620,8 @@ and attaches the bundle. It refuses to do so if the tag and `package.json`
 disagree, or if the version string is not actually inside the built file — a tag
 is spent the moment it is pushed, so both are checked before the asset exists
 rather than after someone installs it.
+
+Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence
 

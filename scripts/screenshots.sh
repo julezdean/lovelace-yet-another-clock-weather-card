@@ -28,6 +28,7 @@ SHOTS=(
   "bold-clock-light|1080,520|w=1032&cfg=%7B%22clock_weight%22%3A%20%22700%22%2C%20%22show_calendar%22%3A%20true%2C%20%22calendar_entities%22%3A%20%5B%22calendar.familie%22%5D%2C%20%22calendar_count%22%3A%203%7D"
   "extremes-light|1080,480|w=1032&cfg=%7B%22temperature_color_mode%22%3A%20%22dynamic%22%2C%20%22forecast_hours%22%3A%2012%7D"
   "extremes-dense-light|1080,480|w=1032&cfg=%7B%22temperature_color_mode%22%3A%20%22dynamic%22%2C%20%22forecast_hours%22%3A%2024%2C%20%22hourly_scroll%22%3A%20false%7D"
+  "precip-amount-dark|1080,480|w=1032&dark=1&cfg=%7B%22show_precipitation_probability%22%3A%20false%2C%20%22show_precipitation_amount%22%3A%20true%7D"
 )
 
 mkdir -p "$OUT"

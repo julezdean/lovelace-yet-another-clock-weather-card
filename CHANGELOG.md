@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The precipitation amount is drawn as blue bars, per hour and per day, not only
+  printed. Integrations that report millimetres but no probability used to get
+  no bars at all, because the only track there was showed the probability. The
+  amount has its own track and a fixed scale, so a bar's height means how much
+  falls rather than which hour is the wettest on screen.
+
+### Fixed
+
+- `show_precipitation_probability: false` now also hides the percentages under
+  the hourly bars. It removed the bars but left the numbers.
+
 ## [0.1.1] - 2026-09-21
 
 ### Fixed

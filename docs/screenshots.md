@@ -36,6 +36,7 @@ be regenerated after a change instead of quietly going stale.
 | `calendar-light.png` | 1080 x 520 | `?w=1032&cfg={"show_calendar":true,…}` |
 | `bold-clock-light.png` | 1080 x 520 | `?w=1032&cfg={"clock_weight":"700",…}` |
 | `extremes-light.png` | 1080 x 480 | `?w=1032&cfg={"temperature_color_mode":"dynamic","forecast_hours":12}` |
+| `precip-amount-dark.png` | 1080 x 480 | `?w=1032&dark=1&cfg={"show_precipitation_probability":false,"show_precipitation_amount":true}` |
 
 The exact, URL-encoded queries live in `scripts/screenshots.sh`; the table above
 shows them readably. `cold=1` switches the mock to a sub-zero dataset so the cool

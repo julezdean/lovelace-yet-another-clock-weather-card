@@ -31,6 +31,11 @@ The warmest and coldest hour are marked on the curve
 
 ![Compact layout](docs/images/compact-light.png)
 
+`show_precipitation_amount: true` on an integration that reports millimetres but
+no probability -- each hour and each day gets a blue bar for how much falls:
+
+![Precipitation amount](docs/images/precip-amount-dark.png)
+
 `temperature_color_mode: dynamic` -- the same card on a mild and on a frosty
 week. The colour scale is absolute, so 20° looks the same in January and July:
 
@@ -175,7 +180,7 @@ More examples in [`examples/`](examples/).
 | `show_daily_forecast` | boolean | `true` | |
 | `forecast_days` | number | `5` | 1–10, clamped. |
 | `show_precipitation_probability` | boolean | `true` | Bar track plus percentage. |
-| `show_precipitation_amount` | boolean | `false` | How much rain, in the entity's `precipitation_unit`. |
+| `show_precipitation_amount` | boolean | `false` | How much rain, in the entity's `precipitation_unit`, as bars plus value. |
 | `night_icons_hourly` | boolean | `true` | See *Night icons* below. |
 | `show_hourly_extremes` | boolean | `true` | Marks the warmest and coldest hour on show. |
 | `forecast_ratio` | number | `1.5` | Height of the hourly block relative to the daily one; `1.5` is 3:2. Range 0.5–4. |
@@ -352,6 +357,13 @@ Home Assistant. Without a `sun.sun` entity the card falls back to daytime icons.
   0.2 mm is drizzle; 30 % of 18 mm is a downpour you would want to know about.
   Either can be shown without the other, and the amount is per forecast period
   -- per hour in the hourly block, per day in the daily one.
+- **Each channel gets its own bars.** In the hourly block probability and amount
+  are two tracks with two baselines; with both on, the probability steps back
+  to the soft tint so the two can be told apart. In the daily block a slim bar
+  left of the temperature range carries the amount; a per-day probability stays
+  text. Amount bars use a fixed scale -- full height at 4 mm per hour or 20 mm
+  per day (0.16 / 0.8 in), raised when a forecast is wetter -- so a bar's height
+  means millimetres, not "the wettest of what is on screen".
 - **The warmest and coldest hour are marked** with a haloed node on the curve,
   an enlarged bold value and a small ▲ / ▼. Several channels, because size
   alone is weak for low vision and the glyph survives greyscale. On a tie the

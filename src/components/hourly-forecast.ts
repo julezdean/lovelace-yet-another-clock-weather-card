@@ -26,6 +26,14 @@ import { gradientSpec, type RampStop } from "../utils/temperature-scale";
 const MIN_COLUMN = 54;
 const CHART_INSET = 8;
 
+/**
+ * Hourly amount that fills the track. Roughly where moderate rain turns heavy:
+ * the height then means "how much" on an absolute scale, so a drizzly day does
+ * not look like a downpour just because its wettest hour is the tallest bar.
+ * A wetter forecast raises the ceiling instead of being clipped.
+ */
+const AMOUNT_FULL_SCALE: Record<string, number> = { mm: 4, in: 0.16 };
+
 /** compact_mode is a real size change, not just tighter padding. */
 const SIZES = {
   normal: { chart: 64, precip: 18, minChart: 52 },
@@ -171,6 +179,7 @@ export class YacwHourlyForecast extends ForecastBlock {
                     columnWidth,
                     size.precip,
                     hasProbability,
+                    hasAmount,
                   )
                 : nothing
             }
@@ -316,6 +325,7 @@ export class YacwHourlyForecast extends ForecastBlock {
           (item) => html`
             <div class="cell precip-value">
               ${
+                this.showProbability &&
                 item.precipitationProbability !== undefined &&
                 item.precipitationProbability > 0
                   ? html`${Math.round(item.precipitationProbability)}%`
@@ -339,19 +349,69 @@ export class YacwHourlyForecast extends ForecastBlock {
     `;
   }
 
+  /**
+   * One track per channel. Probability and amount are different quantities, so
+   * they never share a bar or a scale -- each gets its own baseline, the same
+   * rule that keeps precipitation off the temperature plot.
+   */
   private _renderPrecipitation(
     items: Forecast[],
     width: number,
     columnWidth: number,
     trackHeight: number,
-    withBars: boolean,
+    withProbability: boolean,
+    withAmount: boolean,
   ) {
     const barWidth = Math.min(14, Math.max(5, columnWidth * 0.34));
-    if (!withBars) {
-      return html`${this._renderPrecipitationLabels(items)}`;
-    }
+    const amounts = items.map((i) => i.precipitation);
+    const fullScale = Math.max(
+      AMOUNT_FULL_SCALE[this.precipitationUnit] ?? AMOUNT_FULL_SCALE.mm,
+      ...amounts.filter((a): a is number => a !== undefined),
+    );
     return html`
-      <div class="row precip">
+      ${
+        withProbability
+          ? this._renderTrack(
+              items.map((i) => i.precipitationProbability),
+              100,
+              width,
+              columnWidth,
+              trackHeight,
+              barWidth,
+              // Beside the amount, the likelihood steps back to the soft tint:
+              // two identical blue tracks could not be told apart.
+              withAmount ? "probability secondary" : "probability",
+            )
+          : nothing
+      }
+      ${
+        withAmount
+          ? this._renderTrack(
+              amounts,
+              fullScale,
+              width,
+              columnWidth,
+              trackHeight,
+              barWidth,
+              "amount",
+            )
+          : nothing
+      }
+      ${this._renderPrecipitationLabels(items)}
+    `;
+  }
+
+  private _renderTrack(
+    values: (number | undefined)[],
+    max: number,
+    width: number,
+    columnWidth: number,
+    trackHeight: number,
+    barWidth: number,
+    kind: string,
+  ) {
+    return html`
+      <div class="row precip ${kind}">
         <svg
           width=${round(width)}
           height=${trackHeight}
@@ -366,11 +426,10 @@ export class YacwHourlyForecast extends ForecastBlock {
             x2=${round(width)}
             y2=${trackHeight - 0.5}
           />
-          ${items.map((item, index) => {
-            const probability = item.precipitationProbability;
-            if (probability === undefined || probability <= 0) return nothing;
-            const clamped = Math.min(100, Math.max(0, probability));
-            const height = Math.max(2, (clamped / 100) * (trackHeight - 2));
+          ${values.map((value, index) => {
+            if (value === undefined || value <= 0) return nothing;
+            const clamped = Math.min(max, value);
+            const height = Math.max(2, (clamped / max) * (trackHeight - 2));
             const x = round((index + 0.5) * columnWidth - barWidth / 2);
             return svg`<rect
               class="bar"
@@ -383,7 +442,6 @@ export class YacwHourlyForecast extends ForecastBlock {
           })}
         </svg>
       </div>
-      ${this._renderPrecipitationLabels(items)}
     `;
   }
 
@@ -584,6 +642,9 @@ export class YacwHourlyForecast extends ForecastBlock {
       }
       .bar {
         fill: var(--yacw-precip);
+      }
+      .secondary .bar {
+        fill: var(--yacw-precip-soft);
       }
       /* Values wear text tokens, never the series colour: the mark carries the
          identity, the number stays readable ink. */

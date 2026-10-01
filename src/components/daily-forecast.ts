@@ -25,6 +25,16 @@ const SIZES = {
 const PLOT_INSET = 5;
 /** Below this bar length the two readings would collide and get nudged apart. */
 const LABEL_CLEARANCE = 24;
+/** The amount bar is a slim companion to the range bar, not a second range. */
+const PRECIP_WIDTH = 5;
+const PRECIP_GAP = 3;
+/**
+ * Daily amount that fills the plot height -- about where a wet day becomes a
+ * heavy-rain day. Fixed, so the height means millimetres rather than "the
+ * wettest of these five days"; a wetter week raises the ceiling instead of
+ * being clipped.
+ */
+const AMOUNT_FULL_SCALE: Record<string, number> = { mm: 20, in: 0.8 };
 
 /**
  * Days are range bars, not a curve.
@@ -42,6 +52,15 @@ const LABEL_CLEARANCE = 24;
  * vertical space, they never have to contrast against the temperature gradient,
  * and they work at any bar length.
  */
+interface Geometry {
+  barWidth: number;
+  gap: number;
+  textWidth: number;
+  /** Room left of the range bar, taken by the amount bar when it is shown. */
+  leading: number;
+  barOffset: number;
+}
+
 export class YacwDailyForecast extends ForecastBlock {
   @property({ attribute: false }) items: Forecast[] = [];
   @property({ attribute: false }) ctx!: FormatContext;
@@ -77,11 +96,18 @@ export class YacwDailyForecast extends ForecastBlock {
     }
     const rawExtent = extentOf(values);
 
+    // Only the amount gets a bar. A probability per DAY says little -- 60 %
+    // somewhere in 24 hours -- and stays in the text beside the weekday.
+    const amounts = items.map((i) =>
+      this.showAmount ? i.precipitation : undefined,
+    );
+    const hasAmount = amounts.some((a) => a !== undefined && a > 0);
+
     // Bar and readings form one centred group, so the bar itself sits left of
     // the column centre. The icon and the weekday belong to the BAR, not to
     // the group, and are shifted onto its axis -- otherwise the icon floats
     // above the numbers instead of above the thing it describes.
-    const geometry = this._geometry(columnWidth, size);
+    const geometry = this._geometry(columnWidth, size, hasAmount);
 
     return html`
       <section
@@ -118,6 +144,7 @@ export class YacwDailyForecast extends ForecastBlock {
                     columnWidth,
                     size,
                     geometry,
+                    hasAmount ? amounts : undefined,
                   )
                 : nothing
             }
@@ -171,11 +198,21 @@ export class YacwDailyForecast extends ForecastBlock {
   private _geometry(
     columnWidth: number,
     size: { bar: number; text: number },
-  ): { barWidth: number; gap: number; textWidth: number; barOffset: number } {
+    withAmount: boolean,
+  ): Geometry {
     const barWidth = Math.min(size.bar, Math.max(12, columnWidth * 0.22));
     const textWidth = size.text * 2.6;
     const gap = 5;
-    return { barWidth, gap, textWidth, barOffset: -(gap + textWidth) / 2 };
+    // The amount bar sits LEFT of the range bar, the readings right of it, so
+    // the two columns never fight over the same side.
+    const leading = withAmount ? PRECIP_WIDTH + PRECIP_GAP : 0;
+    return {
+      barWidth,
+      gap,
+      textWidth,
+      leading,
+      barOffset: (leading - gap - textWidth) / 2,
+    };
   }
 
   private _renderBars(
@@ -184,12 +221,8 @@ export class YacwDailyForecast extends ForecastBlock {
     width: number,
     columnWidth: number,
     size: { bar: number; text: number; minPlot: number },
-    geometry: {
-      barWidth: number;
-      gap: number;
-      textWidth: number;
-      barOffset: number;
-    },
+    geometry: Geometry,
+    amounts?: (number | undefined)[],
   ) {
     const height = Math.max(size.minPlot, this.effectivePlotHeight);
     const extent = paddedExtent(rawExtent, 6, 0.05);
@@ -205,9 +238,13 @@ export class YacwDailyForecast extends ForecastBlock {
         )
       : undefined;
 
-    const { barWidth, gap, textWidth } = geometry;
+    const { barWidth, gap, textWidth, leading } = geometry;
     const radius = Math.min(barWidth / 2, 5);
-    const groupWidth = barWidth + gap + textWidth;
+    const groupWidth = leading + barWidth + gap + textWidth;
+    const fullScale = Math.max(
+      AMOUNT_FULL_SCALE[this.precipitationUnit] ?? AMOUNT_FULL_SCALE.mm,
+      ...(amounts ?? []).filter((a): a is number => a !== undefined),
+    );
 
     return html`
       <div class="row chart">
@@ -237,11 +274,15 @@ export class YacwDailyForecast extends ForecastBlock {
           }
           ${items.map((item, index) => {
             const centre = (index + 0.5) * columnWidth;
-            const barX = centre - groupWidth / 2;
+            const groupX = centre - groupWidth / 2;
+            const barX = groupX + leading;
             const textX = barX + barWidth + gap;
             const high = item.temperature;
             const low = item.templow;
-            if (high === undefined && low === undefined) return nothing;
+            const precip = amounts
+              ? this._renderAmount(amounts[index], fullScale, groupX, top, bottom)
+              : "";
+            if (high === undefined && low === undefined) return precip;
 
             // The recessive track shows how much of the week's span this day
             // covers; without it a short bar floats with no frame of reference.
@@ -257,6 +298,7 @@ export class YacwDailyForecast extends ForecastBlock {
               const only = (high ?? low) as number;
               const y = yOf(only);
               return svg`
+                ${precip}
                 ${track}
                 <circle
                   class="single"
@@ -279,6 +321,7 @@ export class YacwDailyForecast extends ForecastBlock {
             const lowY = Math.min(height - PLOT_INSET, yLow + nudge);
 
             return svg`
+              ${precip}
               ${track}
               <rect
                 class="range"
@@ -297,6 +340,33 @@ export class YacwDailyForecast extends ForecastBlock {
         </svg>
       </div>
     `;
+  }
+
+  /** Filled from the bottom of its own track: height is the day's amount. */
+  private _renderAmount(
+    amount: number | undefined,
+    fullScale: number,
+    x: number,
+    top: number,
+    bottom: number,
+  ) {
+    const track = svg`<rect
+      class="precip-track"
+      x=${round(x)} y=${round(top)}
+      width=${PRECIP_WIDTH} height=${round(bottom - top)}
+      rx="2"
+    />`;
+    if (amount === undefined || amount <= 0) return track;
+    const height = Math.max(
+      2,
+      (Math.min(fullScale, amount) / fullScale) * (bottom - top),
+    );
+    return svg`${track}<rect
+      class="precip-bar"
+      x=${round(x)} y=${round(bottom - height)}
+      width=${PRECIP_WIDTH} height=${round(height)}
+      rx="2"
+    />`;
   }
 
   private _renderTable(items: Forecast[]) {
@@ -424,6 +494,12 @@ export class YacwDailyForecast extends ForecastBlock {
       }
       .track {
         fill: var(--yacw-grid);
+      }
+      .precip-track {
+        fill: var(--yacw-grid);
+      }
+      .precip-bar {
+        fill: var(--yacw-precip);
       }
       .range,
       .single {

@@ -247,7 +247,7 @@ export class YacwDailyForecast extends ForecastBlock {
     );
 
     return html`
-      <div class="row chart">
+      <div class="row chart" style="min-height:${size.minPlot}px">
         <svg
           width=${round(width)}
           height=${round(height)}
@@ -485,10 +485,12 @@ export class YacwDailyForecast extends ForecastBlock {
         position: relative;
         line-height: 0;
         /* Takes whatever height the card's ratio leaves this block. */
-        flex: 1 1 auto;
-        min-height: 40px;
+        flex: 1 1 0;
       }
       .chart svg {
+        position: absolute;
+        top: 0;
+        left: 0;
         display: block;
         height: 100%;
       }

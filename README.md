@@ -183,7 +183,7 @@ More examples in [`examples/`](examples/).
 | `show_precipitation_amount` | boolean | `false` | How much rain, in the entity's `precipitation_unit`, as bars plus value. |
 | `night_icons_hourly` | boolean | `true` | See *Night icons* below. |
 | `show_hourly_extremes` | boolean | `true` | Marks the warmest and coldest hour on show. |
-| `forecast_ratio` | number | `1.5` | Height of the hourly block relative to the daily one; `1.5` is 3:2. Range 0.5–4. |
+| `forecast_ratio` | number | `1.5` | Height of the hourly block relative to the daily one; `1.5` is 3:2. Range 0.5–4. The card grows to keep it. |
 
 #### Calendar
 
@@ -324,12 +324,14 @@ reports `end == start` anyway is clamped rather than rendered backwards.
 plot is measured, not a constant, so a taller block means a taller curve rather
 than more whitespace.
 
-It can only divide height that exists. Neither block is ever squeezed below what
-its own rows need, so on a card whose height is set by the forecast content
-itself both sit at their minimum and the ratio has nothing to distribute -- that
-already works out at about 3:2. The ratio bites when the hero column is the
-taller side, which is the usual case once the clock is enlarged or the calendar
-is switched on.
+The ratio is exact, and it is kept by making the card taller rather than by
+squeezing either block below what its own rows need. The card computes the
+smallest forecast column in which both blocks fit at the requested split, so a
+high ratio gives a taller hourly curve and a low one taller day bars -- and the
+card grows accordingly. Measured on the demo card at 1032px: `1` → 392px,
+`1.5` → 341px, `2.5` → 458px, `4` → 633px. When the container gives the card
+more height than that (a sized sections grid, a tall hero column), the extra is
+split by the same ratio.
 
 ### Night icons
 

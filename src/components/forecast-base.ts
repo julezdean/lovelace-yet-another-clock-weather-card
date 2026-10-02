@@ -11,7 +11,15 @@ import { state } from "lit/decorators.js";
  * because the two forecast blocks share the card's height by a configurable
  * ratio -- with a constant chart height the extra space would simply become
  * whitespace inside the block instead of a taller curve.
+ *
+ * The plot is only ever given its height, it never takes one from its content:
+ * its floor is a fixed min-height and the drawing is positioned absolutely.
+ * Otherwise the SVG, sized to the last measured height, would hold the block
+ * open -- a card that was tall once could never shrink back.
  */
+/** Bound by literal name in the card's template; Lit cannot bind a variable one. */
+const LAYOUT_EVENT = "yacw-forecast-layout";
+
 export abstract class ForecastBlock extends LitElement {
   @state() protected availableWidth = 0;
   @state() protected plotHeight = 0;
@@ -33,6 +41,7 @@ export abstract class ForecastBlock extends LitElement {
       if (Math.abs(width - this.availableWidth) > 0.5) {
         this.availableWidth = width;
       }
+      this._announceLayout();
     });
     this._widthObserver.observe(this);
   }
@@ -58,8 +67,31 @@ export abstract class ForecastBlock extends LitElement {
       if (Math.abs(height - this.plotHeight) > 0.5) {
         this.plotHeight = height;
       }
+      this._announceLayout();
     });
     this._plotObserver.observe(plot);
+  }
+
+  /**
+   * The height this block needs with its plot at the floor. It does not depend
+   * on how tall the block currently is -- everything but the plot is fixed --
+   * so the card can size from it without feeding back into it.
+   */
+  public get minimumHeight(): number | undefined {
+    const plot = this._plot;
+    if (!plot?.isConnected) return undefined;
+    const floor = parseFloat(getComputedStyle(plot).minHeight) || 0;
+    return (
+      this.getBoundingClientRect().height -
+      plot.getBoundingClientRect().height +
+      floor
+    );
+  }
+
+  private _announceLayout(): void {
+    this.dispatchEvent(
+      new CustomEvent(LAYOUT_EVENT, { bubbles: true, composed: true }),
+    );
   }
 
   protected get effectivePlotHeight(): number {

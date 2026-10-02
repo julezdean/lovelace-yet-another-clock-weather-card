@@ -40,7 +40,10 @@
       body {
         background: var(--page);
         font-family: Roboto, -apple-system, "Segoe UI", sans-serif;
-        display: flex; align-items: center; justify-content: center;
+        /* Left, not centred: headless Chrome lays out at least 500px wide even
+           for a 408px window, so a centred 360px card started at x=70 and the
+           screenshot cut off its right edge. */
+        display: flex; align-items: center; justify-content: flex-start;
         padding: 24px; box-sizing: border-box;
       }
       #stage { flex: 0 0 auto; }

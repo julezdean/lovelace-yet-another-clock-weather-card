@@ -43,6 +43,10 @@ shows them readably. `cold=1` switches the mock to a sub-zero dataset so the coo
 arm of the ramp is actually exercised -- a screenshot of only mild weather would
 not show whether the cold end works.
 
+The stage is left-aligned on purpose. Headless Chrome lays a page out at least
+500px wide, whatever `--window-size` says, so a centred phone-width card would
+start at x=70 and run off the right edge of the 408px screenshot.
+
 The viewport is the card width plus the 48px of page padding, and a height that
 clears the card. **Those numbers are not constants.** Card height follows its
 content: turning on seconds, wind, humidity or precipitation amounts makes it

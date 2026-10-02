@@ -128,6 +128,7 @@ export class YacwHourlyForecast extends ForecastBlock {
                     contentWidth,
                     columnWidth,
                     Math.max(size.minChart, this.effectivePlotHeight),
+                    size.minChart,
                     extremes,
                   )
                 : nothing
@@ -234,6 +235,7 @@ export class YacwHourlyForecast extends ForecastBlock {
     width: number,
     columnWidth: number,
     chartHeight: number,
+    minHeight: number,
     extremes: { max?: number; min?: number },
   ) {
     const extent = paddedExtent(rawExtent);
@@ -264,7 +266,7 @@ export class YacwHourlyForecast extends ForecastBlock {
     if (!points.length) return nothing;
 
     return html`
-      <div class="row chart">
+      <div class="row chart" style="min-height:${minHeight}px">
         <svg
           width=${round(width)}
           height=${chartHeight}
@@ -559,8 +561,7 @@ export class YacwHourlyForecast extends ForecastBlock {
         line-height: 0;
         /* Grows into the height the card's ratio gives this block; without
            this a taller block would only add whitespace, not a taller curve. */
-        flex: 1 1 auto;
-        min-height: 40px;
+        flex: 1 1 0;
       }
       .precip {
         display: block;
@@ -568,6 +569,9 @@ export class YacwHourlyForecast extends ForecastBlock {
         line-height: 0;
       }
       .chart svg {
+        position: absolute;
+        top: 0;
+        left: 0;
         display: block;
         height: 100%;
       }

@@ -6,6 +6,7 @@ import "./components/clock";
 import "./components/current-weather";
 import "./components/daily-forecast";
 import "./components/hourly-forecast";
+import { ForecastBlock } from "./components/forecast-base";
 import { CalendarController } from "./data/calendar-controller";
 import { ForecastController } from "./data/forecast-controller";
 import { ConfigError, normalizeConfig } from "./data/defaults";
@@ -49,6 +50,8 @@ import type {
 export class YetAnotherClockWeatherCard extends LitElement {
   @state() private _config?: CardConfig;
   @state() private _configError?: string;
+  /** Height the forecast column needs for the ratio to hold; 0 = no floor. */
+  @state() private _forecastFloor = 0;
   /** Deliberately not @state: `hass` is replaced on every state change in the
    *  whole installation, and re-rendering on each of them is the single most
    *  common performance bug in custom cards. */
@@ -319,7 +322,11 @@ export class YetAnotherClockWeatherCard extends LitElement {
             }
           </div>
 
-          <div class="forecasts">
+          <div
+            class="forecasts"
+            style=${this._forecastFloor ? `min-height:${this._forecastFloor}px` : ""}
+            @yacw-forecast-layout=${this._fitRatio}
+          >
             ${
               showHourly
                 ? html`<div class="panel hourly">
@@ -388,6 +395,50 @@ export class YetAnotherClockWeatherCard extends LitElement {
       </ha-card>
     `;
   }
+
+  /**
+   * Makes forecast_ratio hold on a card whose height comes from its content,
+   * which is the normal case outside a sized sections grid.
+   *
+   * The two blocks split the column by flex-grow, but flex only distributes
+   * FREE space. A content-sized column has none: it is exactly as tall as both
+   * blocks at their minimum, so every ratio produced the same layout. The floor
+   * is the smallest column in which the split is exact and neither block drops
+   * below what it needs: with d the daily height, d >= minDaily and
+   * r * d >= minHourly. A card given more height by its container still splits
+   * it by the ratio; the floor only stops it from collapsing to the minimum.
+   */
+  protected override updated(changed: Map<PropertyKey, unknown>): void {
+    // A new ratio alone resizes nothing, so no block would report it.
+    if (changed.has("_config")) this._fitRatio();
+  }
+
+  private _fitRatio = (): void => {
+    const column = this.renderRoot.querySelector<HTMLElement>(".forecasts");
+    const hourly = column?.querySelector(".hourly")?.firstElementChild;
+    const daily = column?.querySelector(".daily")?.firstElementChild;
+    let floor = 0;
+    if (
+      this._config &&
+      column &&
+      hourly instanceof ForecastBlock &&
+      daily instanceof ForecastBlock
+    ) {
+      const minHourly = hourly.minimumHeight;
+      const minDaily = daily.minimumHeight;
+      if (minHourly !== undefined && minDaily !== undefined) {
+        const ratio = this._config.forecast_ratio;
+        const unit = Math.max(minDaily, minHourly / ratio);
+        const gap = parseFloat(getComputedStyle(column).rowGap) || 0;
+        floor = Math.ceil(unit * (1 + ratio) + gap);
+      }
+    }
+    // The floor does not depend on the current split, so setting it cannot
+    // change it; the epsilon only absorbs sub-pixel noise.
+    if (Math.abs(floor - this._forecastFloor) > 0.5) {
+      this._forecastFloor = floor;
+    }
+  };
 
   /** Flat appearance keys write into the card's own custom properties, so YAML
    *  and card_mod / themes end up steering exactly the same variables. */

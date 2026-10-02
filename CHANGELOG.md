@@ -16,6 +16,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `forecast_ratio` had no effect on a card sized by its content, which is the
+  normal case outside a sized sections grid. Flex can only split free space,
+  and a content-sized forecast column has none: every ratio gave the same
+  layout. The card now sizes the column so the split is exact, growing taller
+  for ratios the content cannot otherwise meet.
+- A card that was once taller -- given more height by its container, then
+  less -- no longer stays at the larger height. The chart was drawn at its last
+  measured size and that drawing held the block open.
+- The phone screenshot in the README was cut off on the right.
 - `show_precipitation_probability: false` now also hides the percentages under
   the hourly bars. It removed the bars but left the numbers.
 

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0-beta.1] - 2026-10-03
+
 ### Added
 
 - The precipitation amount is drawn as blue bars, per hour and per day, not only
@@ -110,6 +112,7 @@ First release.
   charge while an update appears to do nothing. The card now says so in the
   console instead.
 
-[Unreleased]: https://github.com/julezdean/lovelace-yet-another-clock-weather-card/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/julezdean/lovelace-yet-another-clock-weather-card/compare/v0.2.0-beta.1...HEAD
+[0.2.0-beta.1]: https://github.com/julezdean/lovelace-yet-another-clock-weather-card/compare/v0.1.1...v0.2.0-beta.1
 [0.1.1]: https://github.com/julezdean/lovelace-yet-another-clock-weather-card/releases/tag/v0.1.1
 [0.1.0]: https://github.com/julezdean/lovelace-yet-another-clock-weather-card/releases/tag/v0.1.0
